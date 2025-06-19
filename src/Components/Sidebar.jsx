@@ -8,13 +8,16 @@ function Sidebar({ setCurrentView }) {
       <div className="logo">
         <img src={bgames} alt="Logo" />
       </div>
-      <button className="button" onClick={() => setCurrentView("reddit")}>
+      <button className="button">
+        Discord Data
+      </button>
+      <button className="button" disabled>
         Reddit Data
       </button>
-      <button className="button" onClick={() => setCurrentView("steam")}>
+      <button className="button" disabled>
         Steam Data
       </button>
-      <button className="button" onClick={() => setCurrentView("overflow")}>
+      <button className="button" disabled>
         StackOverflow Data
       </button>
     </div>
