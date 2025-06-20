@@ -7,6 +7,7 @@ import OverflowView from "./OverflowView.jsx";
 import SteamLogin from "./SteamLogin.jsx";
 import Sidebar from "../Components/Sidebar.jsx";
 import personeIcon from "../assets/person.png";
+import DiscordView from "./DiscordView.jsx";
 
 function Dashboard() {
   const [points, setPoints] = useState({
@@ -130,6 +131,12 @@ function Dashboard() {
             <button onClick={handleGoBack} className="back-button">Back</button>
             <SteamLogin />
           </>
+        )}
+        {currentView === "discord" && (
+            <>
+              <button onClick={handleGoBack} className="back-button">Back</button>
+              <DiscordView />
+            </>
         )}
         {currentView === "default" && (
           <>

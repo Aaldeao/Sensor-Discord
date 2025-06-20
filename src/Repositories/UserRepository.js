@@ -2,7 +2,7 @@ import sqlite3 from 'sqlite3';
 import UserModel from '../Models/UserModel.js';
 
 // Inicializar conexión con la base de datos
-const db = new sqlite3.Database('./sensor-steam-db.db');
+const db = new sqlite3.Database('./Sensores-LifeSyncGames.db');
 
 // Crear la tabla si no existe
 db.serialize(() => {
@@ -16,7 +16,8 @@ db.serialize(() => {
       id_user_steam TEXT,
       id_reddit TEXT,
       id_player_stack TEXT,
-      name_stack TEXT
+      name_stack TEXT,
+      id_discord TEXT
     )
   `);
 });
@@ -32,14 +33,14 @@ class UserRepository {
     }
 
     const query = `
-      INSERT INTO users (id_players, name, email, password, key_steam, id_user_steam, id_reddit, id_player_stack, name_stack)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id_players, name, email, password, key_steam, id_user_steam, id_reddit, id_player_stack, name_stack, id_discord)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     return new Promise((resolve, reject) => {
       db.run(
         query,
-        [user.id_players, user.name, user.email, user.password, user.key_steam, user.id_user_steam, user.id_reddit, user.id_player_stack, user.name_stack],
+        [user.id_players, user.name, user.email, user.password, user.key_steam, user.id_user_steam, user.id_reddit, user.id_player_stack, user.name_stack, user.id_discord],
         function (err) {
           if (err) {
             reject(err);
@@ -72,7 +73,8 @@ class UserRepository {
                 row.id_user_steam,
                 row.id_reddit,
                 row.id_player_stack,
-                row.name_stack
+                row.name_stack,
+                row.id_discord
               )
           );
           resolve(users);
@@ -103,7 +105,8 @@ class UserRepository {
               row.id_user_steam,
               row.id_reddit,
               row.id_player_stack,
-              row.name_stack
+              row.name_stack,
+              row.id_discord
             );
             resolve(user);
           }
@@ -127,7 +130,8 @@ static updateUser(user) { // Se puede usar para todos
         id_user_steam = ?, 
         id_reddit = ?, 
         id_player_stack = ?, 
-        name_stack = ?
+        name_stack = ?,
+        id_discord = ?
     WHERE id_players = ?
   `;
 
@@ -142,7 +146,8 @@ static updateUser(user) { // Se puede usar para todos
         user.id_user_steam,
         user.id_reddit,
         user.id_player_stack,  
-        user.name_stack,       
+        user.name_stack,
+        user.id_discord,       
         user.id_players        // Este es el último valor para el WHERE
       ],
       function (err) {

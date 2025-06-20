@@ -7,7 +7,8 @@ class UserModel {
     id_user_steam,
     id_reddit,
     id_player_stack,
-    name_stack) {
+    name_stack,
+    id_discord) {
     this.id_players = id_players;
     this.name = name;
     this.email = email;
@@ -17,6 +18,7 @@ class UserModel {
     this.id_reddit = id_reddit;
     this.id_player_stack = id_player_stack;
     this.name_stack = name_stack;
+    this.id_discord = id_discord;
   }
 }
 

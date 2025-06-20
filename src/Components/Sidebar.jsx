@@ -8,7 +8,7 @@ function Sidebar({ setCurrentView }) {
       <div className="logo">
         <img src={bgames} alt="Logo" />
       </div>
-      <button className="button">
+      <button className="button" onClick={() => setCurrentView("discord")}>
         Discord Data
       </button>
       <button className="button" disabled>
