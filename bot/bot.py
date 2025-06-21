@@ -39,7 +39,7 @@ conn.commit() # Guardamos los cambios en la base de datos
 # === FUNCIONES DE BASE DE DATOS ===
 # Funciones para guardar reacciones en la base de datos
 def guardar_reaccion(usuario_id, mensaje_id, emoji):
-    fecha = datetime.utcnow().strftime('%Y-%m-%d') # Fecha actual
+    fecha = datetime.utcnow().strftime('%Y-%m-%d') 
     
     # Borra la reacción anterior del mismo usuario al mismo mensaje en ese día
     cursor.execute('''
@@ -89,7 +89,7 @@ async def on_reaction_add(reaction, user):
             print(f"Se quitó reacción no autorizada de {user.name} en mensaje {mensaje_id}")
         except:
             pass # Maneja el caso si no se puede quitar la reacción (por ejemplo, si el bot no tiene permisos)
-        return 
+        return
 
     # Verifica si la reacción es un emoji específico
     if str(reaction.emoji) in ['❤️', '👍', '🤔' , '👎']:  # Iconos que el bot va a detectar
@@ -211,6 +211,74 @@ async def cities(ctx):
     if ctx.author.id in quiz_mensajes:
         del quiz_mensajes[ctx.author.id]
 
+@bot.command()
+@commands.cooldown(1, 60, BucketType.user)  # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
+async def technology(ctx):
+
+    # Lista de preguntas para el quiz de tecnología
+    preguntas = [
+        { "texto": "¿Te gusta usar inteligencia artificial, como ChatGPT o Gemini?" },
+        { "texto": "¿Te animarías a usar un auto que se maneje solo?" },
+        { "texto": "¿Te gustan los relojes inteligentes como el Apple Watch o Galaxy Watch?" },
+        { "texto": "¿Te gusta hacer pagos con el celular, por ejemplo con Google Pay o Apple Pay?" },
+        { "texto": "¿Te gustaría tener una casa inteligente con luces o cerraduras controladas desde el celular?" },
+    ]
+
+    # Mezcla las preguntas para que no siempre salgan en el mismo orden
+    random.shuffle(preguntas)
+
+    # Saludamos al usuario y le damos instrucciones
+    await ctx.send(
+        f"{ctx.author.mention} ¡Bienvenido al quiz de LifeSyncGames! 🤖\n"
+        "Responde con una reacción a cada pregunta. Las opciones son:\n\n"
+        "❤️ → *Me encanta / Muy de acuerdo*\n"
+        "👍 → *Me gusta / De acuerdo*\n"
+        "🤔 → *Ni de acuerdo ni en desacuerdo / Neutral*\n"
+        "👎 → *No me gusta / En desacuerdo*\n"
+    )
+    
+    # Definimos las opciones de reacción que el bot va a detectar
+    opciones = ['❤️', '👍', '🤔', '👎']
+    
+    # Envío de mensaje vacío para separación visual
+    await ctx.send("\u200b")
+
+    # Crea un diccionario para el usuario si no existe
+    if ctx.author.id not in quiz_mensajes:
+        quiz_mensajes[ctx.author.id] = {}
+
+    # Función para verificar que la reacción sea del usuario que inició el comando y que use una de las opciones válidas para el quiz
+    def make_check(pregunta_msg):
+        return lambda reaction, user: (
+            user == ctx.author and 
+            str(reaction.emoji) in opciones and 
+            reaction.message.id == pregunta_msg.id
+        )
+
+    # Envío las preguntas, agrego reacciones y espero la respuesta
+    for pregunta in preguntas:
+        pregunta_msg = await ctx.send(f"{ctx.author.mention}, {pregunta['texto']} \n")
+
+        # Guardo el mensaje y usuario con el comando ejecutado
+        quiz_mensajes[ctx.author.id][pregunta_msg.id] = 'technology'
+
+        for emoji in opciones:
+            await pregunta_msg.add_reaction(emoji)
+
+        # Espero a que el usuario reaccione
+        reaction, user = await bot.wait_for('reaction_add', check=make_check(pregunta_msg))
+
+        # Mensaje vacío para separar visualmente
+        await ctx.send("\u200b")
+
+    # Mensaje final de agradecimiento al usuario
+    await ctx.send(f"{ctx.author.mention} ¡Gracias por completar el quiz! 🎉")
+
+    # Limpio los mensajes del usuario del diccionario
+    if ctx.author.id in quiz_mensajes:
+        del quiz_mensajes[ctx.author.id]
+
+
 # === COMANDO PARA LIMPIAR EL CANAL ===    
 @bot.command()
 async def clean(ctx):
@@ -236,6 +304,7 @@ async def Help(ctx):
         "Aquí tienes la lista de comandos disponibles:\n"
         "`$LSG` → Muestra tus reacciones del día.\n"
         "`$cities` → Inicia un quiz sobre Cities: Skylines.\n"
+        "`$technology` → Inicia un quiz sobre tecnología.\n"
         "`$clean` → Limpia el canal de mensajes.\n"
         "`$Help` → para ver esta lista de nuevo."
     )
