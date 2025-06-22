@@ -2,7 +2,7 @@ import sqlite3 from 'sqlite3';
 import UserModel from '../Models/UserModel.js';
 
 // Inicializar conexión con la base de datos
-const db = new sqlite3.Database('./Sensores-LifeSyncGames.db');
+const db = new sqlite3.Database("./Sensores-LifeSyncGames.db");
 
 // Crear la tabla si no existe
 db.serialize(() => {

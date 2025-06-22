@@ -96,11 +96,15 @@ import { app, BrowserWindow, Tray, Menu } from 'electron';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path'; // Importa 'join' desde 'path'
 
+import { spawn } from 'child_process';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 let mainWindow;
 let tray;
+
+let botProcess; // Proceso del bot de Discord
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -116,6 +120,29 @@ function createWindow() {
     });
 
     mainWindow.loadURL('http://localhost:6969');
+
+    // Ejecutar el bot de Discord
+    const botPath = join(__dirname, '../bot/bot.py');
+    botProcess = spawn('python', [botPath]);
+
+    botProcess.stdout.on('data', (data) => {
+        console.log(`[BOT]: ${data.toString().trim()}`);
+    });
+
+    botProcess.stderr.on('data', (data) => {
+        const msg = data.toString().trim();
+        if (msg.startsWith('[INFO]') || msg.startsWith('[DEBUG')) {
+            console.log(`[BOT INFO]: ${msg}`);
+        } else if (msg.startsWith('[ERROR') || msg.startsWith('[CRITICAL')) {
+            console.error(`[BOT ERROR]: ${msg}`);
+        } else {
+            console.log(`[BOT INFO]: ${msg}`);
+        }
+    });
+
+    botProcess.on('close', (code) => {
+        console.log(`Bot process exited with code ${code}`);
+    });
 
     // Oculta la ventana en vez de cerrarla
     mainWindow.on('close', (e) => {

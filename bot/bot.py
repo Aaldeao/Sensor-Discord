@@ -1,14 +1,15 @@
 import discord # Librería para interactuar con Discord
 import sqlite3 # Librería para manejar la base de datos SQLite
+
 from discord.ext import commands # Extensión de comandos para Discord
-from datetime import datetime # Para manejar fechas y horas
+from datetime import datetime
 from discord.ext.commands import BucketType
 
-import tokensecrets # Archivo secrets.py el que tiene el token del bot
+import tokensecrets # Archivo secrets el que tiene el token del bot
 import random
 
 # === PERMISOS QUE TENDRA EL BOT ===
-intents = discord.Intents.default() # Activa los permisos básicos por defecto
+intents = discord.Intents.default()
 intents.message_content = True # Permite al bot leer el contenido de los mensajes
 intents.reactions = True # Permite al bot detectar las reacciones
 intents.members = True # Permite al bot saber quién es el usuario que reacciona
@@ -24,34 +25,45 @@ quiz_mensajes = {} # Guarda el ID del mensaje del quiz, el ID del usuario que lo
 conn = sqlite3.connect('./Sensores-LifeSyncGames.db')
 cursor = conn.cursor() # Permite ejecutar comandos SQL
 
-# La tabla LifeSyncGames.
+# La tabla bot_discord.
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS bot_discord (
     usuario_id TEXT,
     mensaje_id TEXT,
     fecha TEXT,
     emoji TEXT,
+    puntos INTEGER,
     PRIMARY KEY (usuario_id, mensaje_id, fecha)
 )
 ''')
 conn.commit() # Guardamos los cambios en la base de datos
 
 # === FUNCIONES DE BASE DE DATOS ===
+
+# Diccionario que asigna puntos a cada emoji
+emoji_puntos = {
+    '❤️': 3,
+    '👍': 2,
+    '🤔': 1,
+    '👎': 0
+}
+
 # Funciones para guardar reacciones en la base de datos
 def guardar_reaccion(usuario_id, mensaje_id, emoji):
-    fecha = datetime.utcnow().strftime('%Y-%m-%d') 
+    fecha = datetime.utcnow().strftime('%Y-%m-%d')
+    puntos = emoji_puntos.get(emoji, 0)  # Obtiene el punto del emoji
     
-    # Borra la reacción anterior del mismo usuario al mismo mensaje en ese día
+    # Borra la reacción anterior del mismo usuario si es que existe para ese mensaje y fecha
     cursor.execute('''
         DELETE FROM bot_discord
-        WHERE usuario_id = ? AND mensaje_id = ? AND fecha = ?
+        WHERE usuario_id = ? AND mensaje_id = ? AND fecha = ? 
     ''', (usuario_id, mensaje_id, fecha))
 
     # Inserta la nueva reacción
     cursor.execute('''
-        INSERT INTO bot_discord (usuario_id, mensaje_id, fecha, emoji)
-        VALUES (?, ?, ?, ?)
-    ''', (usuario_id, mensaje_id, fecha, emoji))
+        INSERT INTO bot_discord (usuario_id, mensaje_id, fecha, emoji, puntos)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (usuario_id, mensaje_id, fecha, emoji, puntos))
 
     conn.commit() # Guarda los cambios
 
@@ -65,6 +77,16 @@ def eliminar_reaccion(usuario_id, mensaje_id, emoji):
 
     conn.commit() # Guarda los cambios
 
+# Función para obtener los puntos totales de un usuario en el día
+def puntos_totales_usuario(usuario_id):
+    fecha = datetime.utcnow().strftime('%Y-%m-%d')
+    cursor.execute('''
+        SELECT SUM(puntos) FROM bot_discord
+        WHERE usuario_id = ? AND fecha = ?
+    ''', (usuario_id, fecha))
+    resultado = cursor.fetchone()[0]
+    return resultado if resultado else 0
+
 # === EVENTOS DEL BOT ===
 @bot.event
 async def on_ready():
@@ -73,62 +95,61 @@ async def on_ready():
 @bot.event
 # Evento que se activa cuando el bot vio que un usuario reacciona a un mensaje
 async def on_reaction_add(reaction, user):
-    if user.bot:  # Ignora bots
+
+    if user.bot:# Ignora bots
         return
     
     # Solo guardar si el mensaje es del bot
     if reaction.message.author != bot.user:
         return
     
-    user_id = user.id  # ID del usuario que reaccionó
-    mensaje_id = reaction.message.id # ID del mensaje al que reaccionó
+    user_id = user.id
+    mensaje_id = reaction.message.id
 
     if user_id not in quiz_mensajes or mensaje_id not in quiz_mensajes[user_id]:
         try:
-            await reaction.message.remove_reaction(reaction.emoji, user)  # Elimina la reacción si el usuario que reaccionó no tiene un quiz activo
+            await reaction.message.remove_reaction(reaction.emoji, user) # Elimina la reaccion de otro usuario
             print(f"Se quitó reacción no autorizada de {user.name} en mensaje {mensaje_id}")
         except:
             pass # Maneja el caso si no se puede quitar la reacción (por ejemplo, si el bot no tiene permisos)
-        return
+        return  
 
-    # Verifica si la reacción es un emoji específico
-    if str(reaction.emoji) in ['❤️', '👍', '🤔' , '👎']:  # Iconos que el bot va a detectar
+    # Verifica si la reacción es un emoji válido para el quiz
+    if str(reaction.emoji) in ['❤️', '👍', '🤔' , '👎']:
         
         guardar_reaccion(str(user.id), str(reaction.message.id), str(reaction.emoji)) # Guarda en la base de datos
-        print(f"{user.name} reaccionó con {reaction.emoji} en mensaje {reaction.message.id}")
+        print(f"{user.name} reaccionó en el mensaje {reaction.message.id}")
 
 @bot.event
 # Evento que se activa cuando el bot vio que un usuario quitó una reacción a un mensaje
 async def on_reaction_remove(reaction, user):
-    if user.bot:
+    if user.bot: # Ignora bots
         return
     
-    # Solo eliminar si el mensaje es del bot
     if reaction.message.author != bot.user:
         return
     
-    user_id = user.id # ID del usuario que quitó la reacción
-    msg_id = reaction.message.id # ID del mensaje al que se le quitó la reacción
+    user_id = user.id
+    msg_id = reaction.message.id
 
-    # Verifica si el usuario tiene un quiz activo
     if user_id not in quiz_mensajes:
         return
-    # Verifica si el mensaje es parte de un quiz iniciado por el usuario
+
     if msg_id not in quiz_mensajes[user_id]:
         return
 
     if str(reaction.emoji) in ['❤️', '👍', '🤔', '👎']:
         eliminar_reaccion(str(user.id), str(reaction.message.id), str(reaction.emoji))
-        print(f"{user.name} quitó {reaction.emoji} en mensaje {reaction.message.id}")
+        print(f"{user.name} quitó la reacción en el mensaje {reaction.message.id}")
 
 # === COMANDO PARA VER LAS REACCIONES DEL USUARIO ===   
-@bot.command() # Permite crear un comando que se puede invocar con el prefijo definido
+@bot.command()
 async def LSG(ctx): # Comando $LSG
     fecha = datetime.utcnow().strftime('%Y-%m-%d')
 
-    # Consulta la base de datos para obtener las reacciones del usuario en la fecha actual
+    # Obtiene las reacciones del usuario en el mismo día
     cursor.execute('''
-        SELECT emoji, COUNT(*) FROM bot_discord
+        SELECT emoji, COUNT(*), SUM(puntos) FROM bot_discord
         WHERE usuario_id = ? AND fecha = ?
         GROUP BY emoji
     ''', (str(ctx.author.id), fecha))
@@ -136,18 +157,27 @@ async def LSG(ctx): # Comando $LSG
 
     if resultados:
         mensaje = f"📊 Reacciones de hoy para {ctx.author.name}:\n"
-        for emoji, cantidad in resultados:
-            mensaje += f"{emoji} → {cantidad} mensajes\n"
+        total_puntos = 0
+        for emoji, cantidad, puntos in resultados:
+            mensaje += f"{emoji} → {cantidad} mensajes → {puntos} puntos\n"
+            total_puntos += puntos
+        mensaje += f"\n🎯 **Total de puntos:** {total_puntos}"
     else:
         mensaje = f"No hay reacciones registradas para {ctx.author.name} hoy."
 
-    await ctx.send(mensaje)  # Envía el mensaje al canal donde se invocó el comando
+    await ctx.send(mensaje)
 
 # === COMANDO PARA INICIAR UN QUIZ ===
 @bot.command()
-@commands.cooldown(1, 60, BucketType.user)  # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
-async def cities(ctx):
+@commands.cooldown(1, 60, BucketType.user) # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
+async def cities(ctx): # Comando $cities
 
+    # Verifica si el usuario ya tiene 15 puntos o más
+    puntos_actuales = puntos_totales_usuario(str(ctx.author.id))
+    if puntos_actuales >= 15:
+        await ctx.send(f"🚫 {ctx.author.mention}, ya has alcanzado el límite de 15 puntos por hoy. ¡Inténtalo de nuevo mañana!")
+        return
+    
     # Lista de preguntas para el quiz
     preguntas = [
         { "texto": "¿Te gusta jugar Cities: Skylines?" },
@@ -157,8 +187,7 @@ async def cities(ctx):
         { "texto": "¿Prefieres construir ciudades grandes y densas en Cities: Skylines?" },
     ]
 
-    # Mezcla las preguntas para que no siempre sea salgan en el mismo orden
-    random.shuffle(preguntas)
+    random.shuffle(preguntas) # Mezcla las preguntas para que no siempre salgan en el mismo orden
 
     # Saludamos al usuario y le damos instrucciones
     await ctx.send(
@@ -173,12 +202,10 @@ async def cities(ctx):
     # Definimos las opciones de reacción que el bot va a detectar
     opciones = ['❤️', '👍', '🤔', '👎']
     
-    # Envío de mensaje vacío para separación visual
-    await ctx.send("\u200b")
+    await ctx.send("\u200b") # Espacio en blanco
 
-    # Crea un diccionario para el usuario si no existe
     if ctx.author.id not in quiz_mensajes:
-        quiz_mensajes[ctx.author.id] = {}
+        quiz_mensajes[ctx.author.id] = {} # Diccionario para guardar los mensajes del usuario
 
     # Función para verificar que la reacción sea del usuario que inició el comando y que use una de las opciones válidas para el quiz
     def make_check(pregunta_msg):
@@ -201,19 +228,22 @@ async def cities(ctx):
         # Espera a que el usuario reaccione
         reaction, user = await bot.wait_for('reaction_add', check=make_check(pregunta_msg))
 
-       # Envío de mensaje vacío para separación visual
-        await ctx.send("\u200b")
+        await ctx.send("\u200b") # Espacio en blanco
 
-    # Mensaje final de agradecimiento al usuario por completar el quiz
     await ctx.send(f"{ctx.author.mention} ¡Gracias por completar el quiz! 🎉")
 
-    # Limpiamos el diccionario de mensajes del usuario
     if ctx.author.id in quiz_mensajes:
-        del quiz_mensajes[ctx.author.id]
+        del quiz_mensajes[ctx.author.id] # Limpia el diccionario de mensajes del usuario
 
 @bot.command()
 @commands.cooldown(1, 60, BucketType.user)  # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
 async def technology(ctx):
+
+    # Verifica si el usuario ya tiene 15 puntos o más
+    puntos_actuales = puntos_totales_usuario(str(ctx.author.id))
+    if puntos_actuales >= 15:
+        await ctx.send(f"🚫 {ctx.author.mention}, ya has alcanzado el límite de 15 puntos por hoy. ¡Inténtalo de nuevo mañana!")
+        return
 
     # Lista de preguntas para el quiz de tecnología
     preguntas = [
@@ -240,12 +270,10 @@ async def technology(ctx):
     # Definimos las opciones de reacción que el bot va a detectar
     opciones = ['❤️', '👍', '🤔', '👎']
     
-    # Envío de mensaje vacío para separación visual
-    await ctx.send("\u200b")
+    await ctx.send("\u200b") # Espacio en blanco
 
-    # Crea un diccionario para el usuario si no existe
     if ctx.author.id not in quiz_mensajes:
-        quiz_mensajes[ctx.author.id] = {}
+        quiz_mensajes[ctx.author.id] = {} # Diccionario para guardar los mensajes del usuario
 
     # Función para verificar que la reacción sea del usuario que inició el comando y que use una de las opciones válidas para el quiz
     def make_check(pregunta_msg):
@@ -259,7 +287,6 @@ async def technology(ctx):
     for pregunta in preguntas:
         pregunta_msg = await ctx.send(f"{ctx.author.mention}, {pregunta['texto']} \n")
 
-        # Guardo el mensaje y usuario con el comando ejecutado
         quiz_mensajes[ctx.author.id][pregunta_msg.id] = 'technology'
 
         for emoji in opciones:
@@ -268,23 +295,19 @@ async def technology(ctx):
         # Espero a que el usuario reaccione
         reaction, user = await bot.wait_for('reaction_add', check=make_check(pregunta_msg))
 
-        # Mensaje vacío para separar visualmente
-        await ctx.send("\u200b")
+        await ctx.send("\u200b") # Espacio en blanco
 
-    # Mensaje final de agradecimiento al usuario
     await ctx.send(f"{ctx.author.mention} ¡Gracias por completar el quiz! 🎉")
 
-    # Limpio los mensajes del usuario del diccionario
     if ctx.author.id in quiz_mensajes:
-        del quiz_mensajes[ctx.author.id]
+        del quiz_mensajes[ctx.author.id] # Limpia el diccionario de mensajes del usuario
 
 
 # === COMANDO PARA LIMPIAR EL CANAL ===    
 @bot.command()
-async def clean(ctx):
-    await ctx.channel.purge()  # Limpia el canal
-    await ctx.send("Mensajes Eliminados", delete_after=2)  # Mensaje que se borra solo después de 3 segundos
-
+async def clean(ctx): # Comando para limpiar el canal
+    await ctx.channel.purge()
+    await ctx.send("Mensajes Eliminados", delete_after=2)
 
 # == EVENTO PARA MANEJAR ERRORES DE COMANDOS ==
 @bot.event
