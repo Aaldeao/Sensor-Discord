@@ -40,6 +40,14 @@ conn.commit() # Guardamos los cambios en la base de datos
 
 # === FUNCIONES DE BASE DE DATOS ===
 
+# Función para verificar que el  usuario que quiere ocupar el bot ya vinculó su cuenta de LifeSyncGames con Discord
+def usuario_autorizado(id_discord):
+    cursor.execute('''
+        SELECT COUNT(*) FROM users WHERE id_discord = ?
+    ''', (str(id_discord),))
+    resultado = cursor.fetchone()[0] 
+    return resultado > 0 
+
 # Diccionario que asigna puntos a cada emoji
 emoji_puntos = {
     '❤️': 3,
@@ -145,6 +153,12 @@ async def on_reaction_remove(reaction, user):
 # === COMANDO PARA VER LAS REACCIONES DEL USUARIO ===   
 @bot.command()
 async def LSG(ctx): # Comando $LSG
+
+    # Verifica si el usuario vinculo su cuenta de LifeSyncGames con Discord
+    if not usuario_autorizado(ctx.author.id):
+        await ctx.send(f"❌ {ctx.author.mention}, no tienes permiso para usar este comando. Por favor, vincula tu cuenta de LifeSyncGames con Discord.")
+        return
+
     fecha = datetime.utcnow().strftime('%Y-%m-%d')
 
     # Obtiene las reacciones del usuario en el mismo día
@@ -171,6 +185,11 @@ async def LSG(ctx): # Comando $LSG
 @bot.command()
 @commands.cooldown(1, 60, BucketType.user) # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
 async def cities(ctx): # Comando $cities
+
+    # Verifica si el usuario vinculo su cuenta de LifeSyncGames con Discord
+    if not usuario_autorizado(ctx.author.id):
+        await ctx.send(f"❌ {ctx.author.mention}, no tienes permiso para usar este comando. Por favor, vincula tu cuenta de LifeSyncGames con Discord.")
+        return
 
     # Verifica si el usuario ya tiene 15 puntos o más
     puntos_actuales = puntos_totales_usuario(str(ctx.author.id))
@@ -238,6 +257,11 @@ async def cities(ctx): # Comando $cities
 @bot.command()
 @commands.cooldown(1, 60, BucketType.user)  # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
 async def technology(ctx):
+
+    # Verifica si el usuario vinculo su cuenta de LifeSyncGames con Discord
+    if not usuario_autorizado(ctx.author.id):
+        await ctx.send(f"❌ {ctx.author.mention}, no tienes permiso para usar este comando. Por favor, vincula tu cuenta de LifeSyncGames con Discord.")
+        return
 
     # Verifica si el usuario ya tiene 15 puntos o más
     puntos_actuales = puntos_totales_usuario(str(ctx.author.id))

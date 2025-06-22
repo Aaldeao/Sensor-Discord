@@ -4,12 +4,14 @@ import PointsBgamesController from '../Controllers/PointsBgamesController.js';
 import SensorPointController from '../Controllers/SensorPointController.js';
 import SensorStackOverflowController from '../Controllers/SensorStackOverflowController.js';
 import SensorRedditController from '../Controllers/SensorRedditController.js';
+import DiscordController from "../Controllers/DiscordController.js";
 const router = express.Router();
 const userController = new UserController();
 const pointsBgamesController = new PointsBgamesController();
 const sensorPointController = new SensorPointController();
 const sensorStackOverflowController = new SensorStackOverflowController();
 const sensorRedditController = new SensorRedditController();
+const discordController = new DiscordController();
 
 // Ruta para crear un usuario
 router.post('/create', (req, res) => userController.createUser(req, res));
@@ -30,5 +32,6 @@ router.get('/callback',(req, res) => sensorRedditController.checkUserReddit(req,
 router.get('/check-reddit-user',(req, res) => sensorRedditController.checkUserRedditDB(req, res));
 router.get('/check-stack-overflow-user',(req, res) => sensorStackOverflowController.checkUserStackOverflowDB(req, res));
 router.get('/callback-stack-overflow',(req, res) => sensorStackOverflowController.checkUserStackOverflow(req, res));
+router.get("/discord/checkUser", discordController.checkStatus);
 // Exporta el router como default
 export default router;

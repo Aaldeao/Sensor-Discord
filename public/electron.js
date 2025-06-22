@@ -97,6 +97,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path'; // Importa 'join' desde 'path'
 
 import { spawn } from 'child_process';
+import { fork } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -105,6 +106,7 @@ let mainWindow;
 let tray;
 
 let botProcess; // Proceso del bot de Discord
+let serverProcess; // Proceso del servidor para la autenticacion de Discord
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -152,6 +154,7 @@ function createWindow() {
 }
 
 app.on('ready', () => {
+    serverProcess = fork(join(__dirname, '../bot/authServer.js')); // Ejcuta /Levanta el servidor de autenticación de Discord
     createWindow();
 
     tray = new Tray(join(__dirname, 'icono.ico'));
@@ -159,6 +162,9 @@ app.on('ready', () => {
         { label: 'Mostrar', click: () => mainWindow.show() },
         { label: 'Salir', click: () => {
             tray.destroy();
+            if (serverProcess) {
+                serverProcess.kill(); // Cierra el proceso del servidor de autenticación
+            }
             app.quit();
         } }
     ]);
@@ -172,4 +178,8 @@ app.on('ready', () => {
 
 app.on('window-all-closed', (e) => {
     e.preventDefault();
+});
+
+app.on('will-quit', () => {
+    if (serverProcess) serverProcess.kill();
 });
