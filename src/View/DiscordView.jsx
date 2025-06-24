@@ -4,48 +4,8 @@ export default function DiscordView() {
   const [discordYaVinculado, setDiscordYaVinculado] = useState(false);
   const [loading, setLoading] = useState(true);
   const [puntos, setPuntos] = useState(null);
-  const [puntosAnteriores, setPuntosAnteriores] = useState(null);
   const [idDiscord, setIdDiscord] = useState("");
-  const [mensajeConfirmacion, setMensajeConfirmacion] = useState("");
-
-  const prevPuntosRef = useRef(null); // Referencia para almacenar los puntos anteriores
-
-  // Funcion para enviar puntos a LifeSync Games
-  const enviarPuntosAlServidor = (puntos, puntosAnteriores, idDiscord) => {
-    const puntosDiferencia = puntos - puntosAnteriores;
-    if (puntosDiferencia <= 0) return;
-
-    // Estructura de datos para enviar
-    const payload = {
-      points: puntosDiferencia,
-      id_attributes: "0",
-      id_discord: idDiscord,
-    };
-
-    // Envia los puntos mediante una peticion PUT
-    fetch("http://localhost:8080/users/sendPointsDiscord", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then((res) => {
-        // Si todo sale bien enviar los puntos, muestra mensaje de confirmación
-        if (res.ok) {
-          console.log("Puntos enviados correctamente:", payload);
-          setMensajeConfirmacion("✅ Tus puntos se han agregado correctamente a la dimensión social.");
-        } else { // Si hay un error, mostrar mensaje de error
-          res.text().then((text) => {
-            console.error(`Error al enviar puntos: ${res.status} - ${text}`);
-            setMensajeConfirmacion("❌ Hubo un error al enviar los puntos.");
-          });
-        }
-      })
-      .catch((error) => {
-        console.error("Excepción al enviar puntos al servidor externo:", error);
-        setMensajeConfirmacion("❌ Error al conectar con LifeSync Games.");
-      });
-  };
-
+  
   // Verifica si el usuario ya vinculo su cuenta de Discord
   useEffect(() => {
     fetch("http://localhost:8080/users/discord/checkUser")
@@ -69,19 +29,10 @@ export default function DiscordView() {
         fetch(`http://localhost:8080/users/puntosDiscord/${idDiscord}`)
           .then((res) => res.json())
           .then((puntosData) => {
+            
             const nuevosPuntos = puntosData.puntos;
-
-            if (
-              prevPuntosRef.current !== null &&
-              nuevosPuntos !== prevPuntosRef.current
-            ) {
-              setPuntosAnteriores(prevPuntosRef.current);
-              enviarPuntosAlServidor(nuevosPuntos, prevPuntosRef.current, idDiscord);
-            }
-
             setPuntos(nuevosPuntos);
-            prevPuntosRef.current = nuevosPuntos;
-
+            
             // Si alcanza o supera 15 puntos, detiene el intervalo.
             if (nuevosPuntos >= 15) {
               clearInterval(interval);
@@ -130,13 +81,54 @@ export default function DiscordView() {
               🎉 ¡Has alcanzado los 15 puntos diarios! ¡Buen trabajo!
             </p>
           )}
-
-          {/* Muestra el mensaje de cuando se ha agregado los puntos a la dimension */}
-          {mensajeConfirmacion && (
-            <p>{mensajeConfirmacion}</p>
-          )}
         </>
       )}
     </div>
   );
+
+
+  //const [mensajeConfirmacion, setMensajeConfirmacion] = useState("");
+//const [puntosAnteriores, setPuntosAnteriores] = useState(null);
+/*
+  const prevPuntosRef = useRef(null); // Referencia para almacenar los puntos anteriores
+
+  // Funcion para enviar puntos a LifeSync Games
+  const enviarPuntosAlServidor = (puntos, puntosAnteriores, idDiscord) => {
+    const puntosDiferencia = puntos - puntosAnteriores;
+    if (puntosDiferencia <= 0) return;
+
+    // Estructura de datos para enviar
+    const payload = {
+      points: puntosDiferencia,
+      id_attributes: "0",
+      id_discord: idDiscord,
+    };
+
+    // Envia los puntos mediante una peticion PUT
+    fetch("http://localhost:8080/users/sendPointsDiscord", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then((res) => {
+        // Si todo sale bien enviar los puntos, muestra mensaje de confirmación
+        if (res.ok) {
+          console.log("Puntos enviados correctamente:", payload);
+          setMensajeConfirmacion("✅ Tus puntos se han agregado correctamente a la dimensión social.");
+        } else { // Si hay un error, mostrar mensaje de error
+          res.text().then((text) => {
+            console.error(`Error al enviar puntos: ${res.status} - ${text}`);
+            setMensajeConfirmacion("❌ Hubo un error al enviar los puntos.");
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("Excepción al enviar puntos al servidor externo:", error);
+        setMensajeConfirmacion("❌ Error al conectar con LifeSync Games.");
+      });
+  };
+
+  {Muestra el mensaje de cuando se ha agregado los puntos a la dimension }
+  {mensajeConfirmacion && (<p>{mensajeConfirmacion}</p>)}
+  */
 }

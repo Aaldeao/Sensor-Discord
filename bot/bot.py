@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 from discord.ext.commands import BucketType
 
 import tokensecrets # Archivo secrets el que tiene el token del bot
+import requests # Librería para hacer peticiones HTTP
 import random
 
 # === PERMISOS QUE TENDRA EL BOT ===
@@ -65,6 +66,14 @@ def usuario_autorizado(id_discord):
     resultado = cursor.fetchone()[0] 
     return resultado > 0 
 
+# Función para obtener el id_player de LifeSync Games del usuario vinculado a Discord
+def obtener_id_player(id_discord):
+    cursor.execute('''
+        SELECT id_players FROM users WHERE id_discord = ?
+    ''', (str(id_discord),))
+    result = cursor.fetchone()
+    return result[0] if result else None
+
 # Funciones sumar puntos al usuario cuando reacciona a un mensaje del bot
 def agregar_puntos(usuario_id, mensaje_id, emoji):
     fecha = datetime.now(timezone(timedelta(hours=-4))).strftime('%Y-%m-%d')
@@ -79,7 +88,7 @@ def agregar_puntos(usuario_id, mensaje_id, emoji):
 
     puntos = emoji_puntos.get(emoji, 0) # Obtiene el valor del emoji
 
-    # Registra la reacción del usuario en la tabla bot_reacciones
+    # Registra la reacción del usuario
     cursor.execute('''
         INSERT INTO bot_reacciones (usuario_id, mensaje_id, fecha) VALUES (?, ?, ?)
     ''', (usuario_id, mensaje_id, fecha))
@@ -104,6 +113,30 @@ def agregar_puntos(usuario_id, mensaje_id, emoji):
         ''', (usuario_id, fecha, puntos_actualizados))
 
     conn.commit() # Guarda los cambios en la base de datos
+
+    # Enviar puntos al servidor de LifeSyncGames
+    try:
+        id_player = obtener_id_player(usuario_id)
+        if id_player is None:
+            print(f"No se encontró un id_player para el usuario {usuario_id}.")
+            return
+
+        # Enviar el punto nuevo cada vez que reaccciona a un mensaje el usuario
+        data = {
+            "points": puntos,
+            "id_attributes": "0", # Dimensión social 
+            "id_players": str(id_player)
+        }
+
+        response = requests.put("http://localhost:8080/users/sendPointsDiscord", json=data)
+
+        if response.status_code == 200:
+            print(f"Puntos ({puntos}) enviados al servidor para {usuario_id}") # Mensaje de éxito
+        else:
+            print(f"Error al enviar puntos: {response.status_code} - {response.text}") # Mensaje de error
+
+    except Exception as e:
+        print(f"Excepción al enviar puntos al servidor: {e}") # Mensaje de excepción
 
 # Funcion para consultar los puntos totales del usuario del dia
 def puntos_totales_usuario(usuario_id):

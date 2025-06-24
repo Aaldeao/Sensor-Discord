@@ -26,8 +26,7 @@ class DiscordPointsService {
       );
     });
   }
-
-  // Obtiene el id_player de un usuario a partir de su id_discord
+/*// Obtiene el id_player de un usuario a partir de su id_discord
   async getIdPlayerByDiscordId(id_discord) {
     try {
       const query = `SELECT id_players FROM users WHERE id_discord = ?`;
@@ -48,6 +47,7 @@ class DiscordPointsService {
       throw error;
     }
   }
+*/
 }
 
 export default DiscordPointsService

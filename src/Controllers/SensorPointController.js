@@ -110,6 +110,32 @@ class SensorPointController {
     // Método para recibir y enviar puntos desde Discord a LifeSyncGames
     async sendPointsController(req, res) {
         try {
+            // Obtener los datos enviados desde el cliente
+            const { points, id_attributes, id_players } = req.body;
+
+            // Validar parámetros
+            if (typeof points !== 'number' || !id_attributes || !id_players) {
+                return res.status(400).json({
+                    error: "Parámetros inválidos. Se requiere points (number), id_attributes y id_players",
+                });
+            }
+
+            // Enviar puntos al servidor usando el servicio correspondiente
+            await this.sensorPointService.sendPointsToServerStackAndReddit(points,
+                id_attributes,
+                id_players);
+
+            // Enviar respuesta de éxito
+            res.json({success: true, message: "Puntos enviados correctamente al servidor.",});
+
+        } catch (error) {
+            console.error("Error en sendPointsController:", error.message);
+            res.status(500).json({ error: "Ocurrió un error al enviar los puntos al servidor.", });
+        }
+    }
+    /*
+    async sendPointsController(req, res) {
+        try {
             // Obtener los datos enviados desde el cliente a través del body de la solicitud
             const { points, id_attributes } = req.body;
 
@@ -135,6 +161,7 @@ class SensorPointController {
             res.status(500).json({ error: "Ocurrió un error al enviar los puntos al servidor." });
         }
     }
+    */
 
 }
 
