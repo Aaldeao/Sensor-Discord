@@ -102,12 +102,15 @@ def agregar_puntos(usuario_id, mensaje_id, emoji):
     # Actualiza los puntos del usuario, asegurando que no exceda 15 puntos
     if row:
         puntos_actuales = row[0]
-        puntos_actualizados = min(15, puntos_actuales + puntos)
+        puntos_para_enviar = max(0,min(15 - puntos_actuales, puntos)) # Asegura que no se envíen más de 15 puntos en total
+        puntos_actualizados = puntos_actuales + puntos_para_enviar
+        # Actualiza los puntos del usuario en la base de datos
         cursor.execute('''
             UPDATE bot_discord SET puntos = ? WHERE usuario_id = ? AND fecha = ?
         ''', (puntos_actualizados, usuario_id, fecha))
     else:
-        puntos_actualizados = min(15, puntos)
+        puntos_para_enviar = min(15, puntos)
+        puntos_actualizados = puntos_para_enviar
         cursor.execute('''
             INSERT INTO bot_discord (usuario_id, fecha, puntos) VALUES (?, ?, ?)
         ''', (usuario_id, fecha, puntos_actualizados))
@@ -120,21 +123,23 @@ def agregar_puntos(usuario_id, mensaje_id, emoji):
         if id_player is None:
             print(f"No se encontró un id_player para el usuario {usuario_id}.")
             return
+        
+        # Solo se envían los puntos si hay algo para enviar
+        if puntos_para_enviar > 0:
+            data = {
+                "points": puntos_para_enviar,
+                "id_attributes": "0", # Dimensión social 
+                "id_players": str(id_player)
+            }
 
-        # Enviar el punto nuevo cada vez que reaccciona a un mensaje el usuario
-        data = {
-            "points": puntos,
-            "id_attributes": "0", # Dimensión social 
-            "id_players": str(id_player)
-        }
+            response = requests.put("http://localhost:8080/users/sendPointsDiscord", json=data)
 
-        response = requests.put("http://localhost:8080/users/sendPointsDiscord", json=data)
-
-        if response.status_code == 200:
-            print(f"Puntos ({puntos}) enviados al servidor para {usuario_id}") # Mensaje de éxito
+            if response.status_code == 200:
+                print(f"Puntos ({puntos_para_enviar}) enviados al servidor para {usuario_id}") # Mensaje de éxito
+            else:
+                print(f"Error al enviar puntos: {response.status_code} - {response.text}") # Mensaje de error
         else:
-            print(f"Error al enviar puntos: {response.status_code} - {response.text}") # Mensaje de error
-
+            print(f"Usuario {usuario_id} ya alcanzó el máximo de puntos diarios. No se envían más.")
     except Exception as e:
         print(f"Excepción al enviar puntos al servidor: {e}") # Mensaje de excepción
 
