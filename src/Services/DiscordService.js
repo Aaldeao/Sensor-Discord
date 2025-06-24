@@ -59,15 +59,18 @@ class DiscordService {
     const users = await UserRepository.getUsers();
     const user = users[0];
 
-    const tieneIdDiscord= user.id_discord && user.id_discord !== 'null' && user.id_discord.trim() !== '';
-    
+    const tieneIdDiscord = user.id_discord && user.id_discord !== 'null' && user.id_discord.trim() !== '';
+
     if (tieneIdDiscord) {
       console.log('El usuario tiene cuenta vinculada con Discord');
-      return true;
+    } else {
+      console.log('El usuario NO tiene cuenta vinculada con Discord');
     }
 
-    console.log('El usuario NO tiene cuenta en Steam');
-    return false;
+    return {
+      discordLinked: tieneIdDiscord,
+      id_discord: tieneIdDiscord ? user.id_discord : null
+    };
   }
 
 }

@@ -1,10 +1,12 @@
 import SensorPointRepository from "../Repositories/SensorPointRepository.js";
 import SensorPointService from "../Services/SensorPointService.js";
+import DiscordPointsService from "../Services/DiscordPointsService.js";
 
 class SensorPointController {
     constructor() {
         const sensorPointRepository = new SensorPointRepository();
         this.sensorPointService = new SensorPointService(sensorPointRepository);
+        this.discordPointsService = new DiscordPointsService();
     }
 
     async setDataSteam(req, res) {
@@ -104,6 +106,36 @@ class SensorPointController {
             });
         }
     }
+    
+    // Método para recibir y enviar puntos desde Discord a LifeSyncGames
+    async sendPointsController(req, res) {
+        try {
+            // Obtener los datos enviados desde el cliente a través del body de la solicitud
+            const { points, id_attributes } = req.body;
+
+            // Validar que los parámetros obligatorios estén presentes y sean del tipo correcto
+            if (typeof points !== 'number' || !id_attributes) {
+            return res.status(400).json({ error: "Parámetros inválidos. Se requiere points (number), id_attributes" });
+            }
+
+            // Obtener el id_player correspondiente al id_discord
+            const id_player = await this.discordPointsService.getIdPlayerByDiscordId(req.body.id_discord);
+
+            // Enviar los puntos usando el servicio correspondiente
+            await this.sensorPointService.sendPointsToServerStackAndReddit(points,
+            id_attributes,
+            String(id_player)
+            );
+
+            // Enviar respuesta al cliente
+            res.json({ success: true, message: "Puntos enviados correctamente al servidor." });
+
+        } catch (error) {
+            console.error("Error en sendPointsController:", error.message);
+            res.status(500).json({ error: "Ocurrió un error al enviar los puntos al servidor." });
+        }
+    }
+
 }
 
 export default SensorPointController;

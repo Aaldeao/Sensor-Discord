@@ -8,7 +8,7 @@ const PORT = 8080;
 
 // Configurar CORS
 app.use(cors({
-  origin: 'http://localhost:6969', // Cambia al puerto donde corre tu frontend
+  origin: '*', // Cambia al puerto donde corre tu frontend
   methods: ['POST', 'GET', 'PUT', 'DELETE'], // Métodos permitidos
   allowedHeaders: ['Content-Type', 'Authorization'] // Encabezados permitidos
 }));

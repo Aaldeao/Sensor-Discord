@@ -2,7 +2,7 @@ import discord # Librería para interactuar con Discord
 import sqlite3 # Librería para manejar la base de datos SQLite
 
 from discord.ext import commands # Extensión de comandos para Discord
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from discord.ext.commands import BucketType
 
 import tokensecrets # Archivo secrets el que tiene el token del bot
@@ -16,39 +16,38 @@ intents.members = True # Permite al bot saber quién es el usuario que reacciona
 intents.guilds = True # Permite al bot interactuar con los servidores
 
 # === BOT ===
-bot = commands.Bot(command_prefix='$', intents=intents)
+bot = commands.Bot(command_prefix='$', intents=intents) # Prefijo del comando del bot es '$'
+
+# === BASE DE DATOS ===
+conn = sqlite3.connect('./Sensores-LifeSyncGames.db')
+cursor = conn.cursor()
+
+# Tabla que guarda el total de puntos del usuario en Discord
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS bot_discord (
+    usuario_id TEXT,
+    fecha TEXT,
+    puntos INTEGER,
+    PRIMARY KEY (usuario_id, fecha)
+)
+''')
+
+# Tabla que guarda el mensaje que reacciono el usuario por dia
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS bot_reacciones (
+    usuario_id TEXT,
+    mensaje_id TEXT,
+    fecha TEXT,
+    PRIMARY KEY (usuario_id, mensaje_id, fecha)
+)
+''')
+
+conn.commit() # Guarda los cambios
 
 # === DICCIONARIO PARA QUIZ ===
 quiz_mensajes = {} # Guarda el ID del mensaje del quiz, el ID del usuario que lo ejecutó y el comando que ejecutó
 
-# === CONFIGURACIÓN DE BASE DE DATOS ===
-conn = sqlite3.connect('./Sensores-LifeSyncGames.db')
-cursor = conn.cursor() # Permite ejecutar comandos SQL
-
-# La tabla bot_discord.
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS bot_discord (
-    usuario_id TEXT,
-    mensaje_id TEXT,
-    fecha TEXT,
-    emoji TEXT,
-    puntos INTEGER,
-    PRIMARY KEY (usuario_id, mensaje_id, fecha)
-)
-''')
-conn.commit() # Guardamos los cambios en la base de datos
-
-# === FUNCIONES DE BASE DE DATOS ===
-
-# Función para verificar que el  usuario que quiere ocupar el bot ya vinculó su cuenta de LifeSyncGames con Discord
-def usuario_autorizado(id_discord):
-    cursor.execute('''
-        SELECT COUNT(*) FROM users WHERE id_discord = ?
-    ''', (str(id_discord),))
-    resultado = cursor.fetchone()[0] 
-    return resultado > 0 
-
-# Diccionario que asigna puntos a cada emoji
+# === EMOJIS Y PUNTOS ===
 emoji_puntos = {
     '❤️': 3,
     '👍': 2,
@@ -56,44 +55,64 @@ emoji_puntos = {
     '👎': 0
 }
 
-# Funciones para guardar reacciones en la base de datos
-def guardar_reaccion(usuario_id, mensaje_id, emoji):
-    fecha = datetime.utcnow().strftime('%Y-%m-%d')
-    puntos = emoji_puntos.get(emoji, 0)  # Obtiene el punto del emoji
-    
-    # Borra la reacción anterior del mismo usuario si es que existe para ese mensaje y fecha
+# === FUNCIONES DE BASE DE DATOS ===
+
+# Función para verificar si tiene vinculada su cuenta de LifeSyncGames con Discord
+def usuario_autorizado(id_discord):
     cursor.execute('''
-        DELETE FROM bot_discord
-        WHERE usuario_id = ? AND mensaje_id = ? AND fecha = ? 
+        SELECT COUNT(*) FROM users WHERE id_discord = ?
+    ''', (str(id_discord),))
+    resultado = cursor.fetchone()[0] 
+    return resultado > 0 
+
+# Funciones sumar puntos al usuario cuando reacciona a un mensaje del bot
+def agregar_puntos(usuario_id, mensaje_id, emoji):
+    fecha = datetime.now(timezone(timedelta(hours=-4))).strftime('%Y-%m-%d')
+
+    # Verifica si el usuario ya reaccionó al mensaje hoy
+    cursor.execute('''
+        SELECT COUNT(*) FROM bot_reacciones WHERE usuario_id = ? AND mensaje_id = ? AND fecha = ?
+    ''', (usuario_id, mensaje_id, fecha))
+    if cursor.fetchone()[0] > 0:
+        print(f"Usuario {usuario_id} ya reaccionó al mensaje {mensaje_id} hoy. No suma puntos.")
+        return
+
+    puntos = emoji_puntos.get(emoji, 0) # Obtiene el valor del emoji
+
+    # Registra la reacción del usuario en la tabla bot_reacciones
+    cursor.execute('''
+        INSERT INTO bot_reacciones (usuario_id, mensaje_id, fecha) VALUES (?, ?, ?)
     ''', (usuario_id, mensaje_id, fecha))
 
-    # Inserta la nueva reacción
+    # Consulta los puntos actuales del usuario del dia
     cursor.execute('''
-        INSERT INTO bot_discord (usuario_id, mensaje_id, fecha, emoji, puntos)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (usuario_id, mensaje_id, fecha, emoji, puntos))
-
-    conn.commit() # Guarda los cambios
-
-# Funciones para eliminar reacciones en la base de datos
-def eliminar_reaccion(usuario_id, mensaje_id, emoji):
-    fecha = datetime.utcnow().strftime('%Y-%m-%d')
-    cursor.execute('''
-        DELETE FROM bot_discord
-        WHERE usuario_id = ? AND mensaje_id = ? AND fecha = ? AND emoji = ?
-    ''', (usuario_id, mensaje_id, fecha, emoji))
-
-    conn.commit() # Guarda los cambios
-
-# Función para obtener los puntos totales de un usuario en el día
-def puntos_totales_usuario(usuario_id):
-    fecha = datetime.utcnow().strftime('%Y-%m-%d')
-    cursor.execute('''
-        SELECT SUM(puntos) FROM bot_discord
-        WHERE usuario_id = ? AND fecha = ?
+        SELECT puntos FROM bot_discord WHERE usuario_id = ? AND fecha = ?
     ''', (usuario_id, fecha))
-    resultado = cursor.fetchone()[0]
-    return resultado if resultado else 0
+    row = cursor.fetchone()
+
+    # Actualiza los puntos del usuario, asegurando que no exceda 15 puntos
+    if row:
+        puntos_actuales = row[0]
+        puntos_actualizados = min(15, puntos_actuales + puntos)
+        cursor.execute('''
+            UPDATE bot_discord SET puntos = ? WHERE usuario_id = ? AND fecha = ?
+        ''', (puntos_actualizados, usuario_id, fecha))
+    else:
+        puntos_actualizados = min(15, puntos)
+        cursor.execute('''
+            INSERT INTO bot_discord (usuario_id, fecha, puntos) VALUES (?, ?, ?)
+        ''', (usuario_id, fecha, puntos_actualizados))
+
+    conn.commit() # Guarda los cambios en la base de datos
+
+# Funcion para consultar los puntos totales del usuario del dia
+def puntos_totales_usuario(usuario_id):
+    fecha = datetime.now(timezone(timedelta(hours=-4))).strftime('%Y-%m-%d')
+    cursor.execute('''
+        SELECT puntos FROM bot_discord WHERE usuario_id = ? AND fecha = ?
+    ''', (usuario_id, fecha))
+    row = cursor.fetchone()
+    return row[0] if row else 0
 
 # === EVENTOS DEL BOT ===
 @bot.event
@@ -103,83 +122,38 @@ async def on_ready():
 @bot.event
 # Evento que se activa cuando el bot vio que un usuario reacciona a un mensaje
 async def on_reaction_add(reaction, user):
-
-    if user.bot:# Ignora bots
-        return
+    if user.bot:
+        return # Ignora las reacciones de otros bots
     
-    # Solo guardar si el mensaje es del bot
+    # Verifica que la reacción sea del mensaje del bot
     if reaction.message.author != bot.user:
-        return
-    
-    user_id = user.id
-    mensaje_id = reaction.message.id
+        return 
+    # Verifica que la reacción sea una de las reacciones válidas
+    if str(reaction.emoji) in emoji_puntos:
+        # Verifica si el usuario tiene permiso para reaccionar
+        if user.id in quiz_mensajes and reaction.message.id in quiz_mensajes[user.id]:
+            agregar_puntos(str(user.id), str(reaction.message.id), str(reaction.emoji))
+        else:
+            # Quita la reacción no autorizada
+            try:
+                await reaction.message.remove_reaction(reaction.emoji, user)
+                print(f"Se quitó reacción no autorizada de {user.name} en mensaje {reaction.message.id}")
+            except:
+                pass
 
-    if user_id not in quiz_mensajes or mensaje_id not in quiz_mensajes[user_id]:
-        try:
-            await reaction.message.remove_reaction(reaction.emoji, user) # Elimina la reaccion de otro usuario
-            print(f"Se quitó reacción no autorizada de {user.name} en mensaje {mensaje_id}")
-        except:
-            pass # Maneja el caso si no se puede quitar la reacción (por ejemplo, si el bot no tiene permisos)
-        return  
-
-    # Verifica si la reacción es un emoji válido para el quiz
-    if str(reaction.emoji) in ['❤️', '👍', '🤔' , '👎']:
-        
-        guardar_reaccion(str(user.id), str(reaction.message.id), str(reaction.emoji)) # Guarda en la base de datos
-        print(f"{user.name} reaccionó en el mensaje {reaction.message.id}")
-
-@bot.event
-# Evento que se activa cuando el bot vio que un usuario quitó una reacción a un mensaje
-async def on_reaction_remove(reaction, user):
-    if user.bot: # Ignora bots
-        return
-    
-    if reaction.message.author != bot.user:
-        return
-    
-    user_id = user.id
-    msg_id = reaction.message.id
-
-    if user_id not in quiz_mensajes:
-        return
-
-    if msg_id not in quiz_mensajes[user_id]:
-        return
-
-    if str(reaction.emoji) in ['❤️', '👍', '🤔', '👎']:
-        eliminar_reaccion(str(user.id), str(reaction.message.id), str(reaction.emoji))
-        print(f"{user.name} quitó la reacción en el mensaje {reaction.message.id}")
-
-# === COMANDO PARA VER LAS REACCIONES DEL USUARIO ===   
+# === COMANDOOS ===   
 @bot.command()
-async def LSG(ctx): # Comando $LSG
-
-    # Verifica si el usuario vinculo su cuenta de LifeSyncGames con Discord
+async def LSG(ctx):
     if not usuario_autorizado(ctx.author.id):
         await ctx.send(f"❌ {ctx.author.mention}, no tienes permiso para usar este comando. Por favor, vincula tu cuenta de LifeSyncGames con Discord.")
         return
-
-    fecha = datetime.utcnow().strftime('%Y-%m-%d')
-
-    # Obtiene las reacciones del usuario en el mismo día
-    cursor.execute('''
-        SELECT emoji, COUNT(*), SUM(puntos) FROM bot_discord
-        WHERE usuario_id = ? AND fecha = ?
-        GROUP BY emoji
-    ''', (str(ctx.author.id), fecha))
-    resultados = cursor.fetchall()
-
-    if resultados:
-        mensaje = f"📊 Reacciones de hoy para {ctx.author.name}:\n"
-        total_puntos = 0
-        for emoji, cantidad, puntos in resultados:
-            mensaje += f"{emoji} → {cantidad} mensajes → {puntos} puntos\n"
-            total_puntos += puntos
-        mensaje += f"\n🎯 **Total de puntos:** {total_puntos}"
+    # Consulta los puntos totales del usuario del dia
+    puntos = puntos_totales_usuario(str(ctx.author.id))
+    if puntos > 0:
+        await ctx.send(f"📊 {ctx.author.name}, tus puntos de hoy son: **{puntos}** 🎯")
     else:
-        mensaje = f"No hay reacciones registradas para {ctx.author.name} hoy."
+        await ctx.send(f"No hay puntos registrados para {ctx.author.name} hoy.")
 
-    await ctx.send(mensaje)
 
 # === COMANDO PARA INICIAR UN QUIZ ===
 @bot.command()
@@ -191,7 +165,7 @@ async def cities(ctx): # Comando $cities
         await ctx.send(f"❌ {ctx.author.mention}, no tienes permiso para usar este comando. Por favor, vincula tu cuenta de LifeSyncGames con Discord.")
         return
 
-    # Verifica si el usuario ya tiene 15 puntos o más
+    # Verifica si el usuario ya tiene 15 puntos
     puntos_actuales = puntos_totales_usuario(str(ctx.author.id))
     if puntos_actuales >= 15:
         await ctx.send(f"🚫 {ctx.author.mention}, ya has alcanzado el límite de 15 puntos por hoy. ¡Inténtalo de nuevo mañana!")
@@ -263,7 +237,7 @@ async def technology(ctx):
         await ctx.send(f"❌ {ctx.author.mention}, no tienes permiso para usar este comando. Por favor, vincula tu cuenta de LifeSyncGames con Discord.")
         return
 
-    # Verifica si el usuario ya tiene 15 puntos o más
+    # Verifica si el usuario ya tiene 15 puntos
     puntos_actuales = puntos_totales_usuario(str(ctx.author.id))
     if puntos_actuales >= 15:
         await ctx.send(f"🚫 {ctx.author.mention}, ya has alcanzado el límite de 15 puntos por hoy. ¡Inténtalo de nuevo mañana!")
@@ -349,7 +323,7 @@ async def on_command_error(ctx, error):
 async def Help(ctx):
     ayuda = (
         "Aquí tienes la lista de comandos disponibles:\n"
-        "`$LSG` → Muestra tus reacciones del día.\n"
+        "`$LSG` → Muestra tus puntos del día.\n"
         "`$cities` → Inicia un quiz sobre Cities: Skylines.\n"
         "`$technology` → Inicia un quiz sobre tecnología.\n"
         "`$clean` → Limpia el canal de mensajes.\n"

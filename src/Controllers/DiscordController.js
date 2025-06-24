@@ -35,14 +35,14 @@ class DiscordController {
   // Metodo que verifica si el usuario ya está vinculado a Discord
   checkStatus = async (req, res) => {
     try {
-      const isLinked = await this.discordService.checkUserDiscord();
-      res.status(200).json({ discordLinked: isLinked });
-      
+      const status = await this.discordService.checkUserDiscord();
+      res.status(200).json(status);
     } catch (error) {
       console.error("Error al verificar el estado de Discord:", error.message);
       res.status(500).send("Error al verificar el estado de Discord.");
     }
   };
+
 }
 
 export default DiscordController;

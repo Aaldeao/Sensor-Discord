@@ -4,14 +4,17 @@ import PointsBgamesController from '../Controllers/PointsBgamesController.js';
 import SensorPointController from '../Controllers/SensorPointController.js';
 import SensorStackOverflowController from '../Controllers/SensorStackOverflowController.js';
 import SensorRedditController from '../Controllers/SensorRedditController.js';
-import DiscordController from "../Controllers/DiscordController.js";
+import DiscordController from "../Controllers/DiscordController.js"; // Discord
+import DiscordPointsController from '../Controllers/DiscordPointsController.js'; // Discord
+
 const router = express.Router();
 const userController = new UserController();
 const pointsBgamesController = new PointsBgamesController();
 const sensorPointController = new SensorPointController();
 const sensorStackOverflowController = new SensorStackOverflowController();
 const sensorRedditController = new SensorRedditController();
-const discordController = new DiscordController();
+const discordController = new DiscordController(); // Discord
+const discordPointsController = new DiscordPointsController(); // Discord
 
 // Ruta para crear un usuario
 router.post('/create', (req, res) => userController.createUser(req, res));
@@ -32,6 +35,8 @@ router.get('/callback',(req, res) => sensorRedditController.checkUserReddit(req,
 router.get('/check-reddit-user',(req, res) => sensorRedditController.checkUserRedditDB(req, res));
 router.get('/check-stack-overflow-user',(req, res) => sensorStackOverflowController.checkUserStackOverflowDB(req, res));
 router.get('/callback-stack-overflow',(req, res) => sensorStackOverflowController.checkUserStackOverflow(req, res));
-router.get("/discord/checkUser", discordController.checkStatus);
+router.get("/discord/checkUser", discordController.checkStatus); // Ruta para verificar si un usuario ya tiene vinculada su cuenta de Discord
+router.get("/puntosDiscord/:id_discord", (req, res) => discordPointsController.pointsToday(req, res)); // Ruta para obtener los puntos acumulados hoy por un usuario en Discord
+router.put("/sendPointsDiscord", (req, res) => sensorPointController.sendPointsController(req, res));  // Ruta para enviar a LifeSync Games los puntos ganados por el usuario en Discord
 // Exporta el router como default
 export default router;
