@@ -50,10 +50,10 @@ quiz_mensajes = {} # Guarda el ID del mensaje del quiz, el ID del usuario que lo
 
 # === EMOJIS Y PUNTOS ===
 emoji_puntos = {
-    '❤️': 3,
-    '👍': 2,
+    '❤️': 1,
+    '👍': 1,
     '🤔': 1,
-    '👎': 0
+    '👎': 1
 }
 
 # === FUNCIONES DE BASE DE DATOS ===
@@ -153,31 +153,66 @@ def puntos_totales_usuario(usuario_id):
     return row[0] if row else 0
 
 # === EVENTOS DEL BOT ===
+# Evento cuando el bot se conecta a Discord
 @bot.event
 async def on_ready():
-    print(f'Bot conectado {bot.user}') # Mensaje cuando el bot se conecta por consola
+    print(f'Bot conectado {bot.user}')
 
+# Evento que se activa cuando el bot ve que el usuario reacciona a un mensaje
 @bot.event
-# Evento que se activa cuando el bot vio que un usuario reacciona a un mensaje
 async def on_reaction_add(reaction, user):
     if user.bot:
         return # Ignora las reacciones de otros bots
     
+    mensaje = reaction.message
+    autor = mensaje.author
+    emoji = str(reaction.emoji)
+    
+    # ===== LOGICA 1: PUNTOS POR LAS REACCIONES QUE REALIZA EL USUARIO AL QUIZ DEL BOT =====
     # Verifica que la reacción sea del mensaje del bot
-    if reaction.message.author != bot.user:
-        return 
+    if mensaje.author == bot.user:
     # Verifica que la reacción sea una de las reacciones válidas
-    if str(reaction.emoji) in emoji_puntos:
-        # Verifica si el usuario tiene permiso para reaccionar
-        if user.id in quiz_mensajes and reaction.message.id in quiz_mensajes[user.id]:
-            agregar_puntos(str(user.id), str(reaction.message.id), str(reaction.emoji))
-        else:
-            # Quita la reacción no autorizada
-            try:
-                await reaction.message.remove_reaction(reaction.emoji, user)
-                print(f"Se quitó reacción no autorizada de {user.name} en mensaje {reaction.message.id}")
-            except:
-                pass
+        if emoji in emoji_puntos:
+            # Verifica si el usuario tiene permiso para reaccionar
+            if user.id in quiz_mensajes and mensaje.id in quiz_mensajes[user.id]:
+                agregar_puntos(str(user.id), str(mensaje.id), emoji)
+            else:
+                # Quita la reacción no autorizada
+                try:
+                    await reaction.message.remove_reaction(reaction.emoji, user)
+                    print(f"Se quitó reacción no autorizada de {user.name} en mensaje {reaction.message.id}")
+                except:
+                    pass
+        return 
+    
+    # ===== LOGICA 2: PUNTOS POR LAS REACCIONES QUE REALIZAN LOS OTROS AL MENSAJE DEL USUARIO =====
+    # Verifica que el autor del mensaje no sea el mismo que reacciono, que no sea un bot y que la reacción sea con un emoji valido
+    if autor.id != user.id and not autor.bot and emoji in emoji_puntos:
+        # Verifica que el autor del mensaje tiene vinculado su cuenta de LifeSyncGames con Discord
+        if usuario_autorizado(autor.id):
+            agregar_puntos(str(autor.id), str(mensaje.id), emoji)
+
+# Evento que se activa cuando un usuario envía un mensaje
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return # Ignora los mensajes de otros bots
+    
+    # Verifica si este mensaje es una respuesta a otro mensaje
+    if message.reference and message.reference.resolved:
+        mensaje_respondido = message.reference.resolved # Obtiene el mensaje al que se le esta respondiendo
+        autor_de_mensaje = mensaje_respondido.author # Obtiene el autor del mensaje al que se le esta respondiendo
+
+        # Verifica que la persona que respondió no sea la misma que el autor del mensaje y que no sea un bot
+        if autor_de_mensaje.id != message.author.id and not autor_de_mensaje.bot:
+            # Verifica que el autor del mensaje tiene vinculado su cuenta de LifeSyncGames con Discord
+            if usuario_autorizado(autor_de_mensaje.id):
+                # Agrega puntos al autor del mensaje original por la respuesta de otro usuario
+                agregar_puntos(str(autor_de_mensaje.id), str(mensaje_respondido.id), '❤️') # 
+                print(f"Puntos agregados al autor del mensaje por la respuesta de otro usuario")
+    
+    # Para que el bot siga procesando los comandos después de manejar este evento
+    await bot.process_commands(message)
 
 # === COMANDOOS ===   
 @bot.command()
@@ -193,10 +228,11 @@ async def LSG(ctx):
         await ctx.send(f"No hay puntos registrados para {ctx.author.name} hoy.")
 
 
-# === COMANDO PARA INICIAR UN QUIZ ===
+# === QUIZ ===
+# === COMANDO PARA EL QUIZ DE CITIES: SKYLINES ===
 @bot.command()
 @commands.cooldown(1, 60, BucketType.user) # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
-async def cities(ctx): # Comando $cities
+async def cities(ctx):
 
     # Verifica si el usuario vinculo su cuenta de LifeSyncGames con Discord
     if not usuario_autorizado(ctx.author.id):
@@ -209,13 +245,18 @@ async def cities(ctx): # Comando $cities
         await ctx.send(f"🚫 {ctx.author.mention}, ya has alcanzado el límite de 15 puntos por hoy. ¡Inténtalo de nuevo mañana!")
         return
     
-    # Lista de preguntas para el quiz
+    # Lista de preguntas para el quiz de Cities: Skylines
     preguntas = [
         { "texto": "¿Te gusta jugar Cities: Skylines?" },
         { "texto": "¿Te gusta construir y administrar tu propia ciudad en Cities: Skylines?" },
         { "texto": "¿Te gusta usar mods en Cities: Skylines?" },
         { "texto": "¿Disfrutas personalizar tu ciudad con parques y zonas recreativas?" },
         { "texto": "¿Prefieres construir ciudades grandes y densas en Cities: Skylines?" },
+        { "texto": "¿Sueles inspirarte en ciudades reales al construir la tuya?" },
+        { "texto": "¿Te divierte diseñar tu ciudad solo por estética, sin preocuparte por la eficiencia?" },
+        { "texto": "¿Te gusta empezar desde cero y destruir tu ciudad para mejorarla?" },
+        { "texto": "¿Te gusta más construir de noche que de día en el juego?" },
+        { "texto": "¿Prefieres construir ciudades realistas en lugar de creativas o locas?" },
     ]
 
     random.shuffle(preguntas) # Mezcla las preguntas para que no siempre salgan en el mismo orden
@@ -235,8 +276,9 @@ async def cities(ctx): # Comando $cities
     
     await ctx.send("\u200b") # Espacio en blanco
 
+    # Si no existe el diccionario para el usuario, se crea
     if ctx.author.id not in quiz_mensajes:
-        quiz_mensajes[ctx.author.id] = {} # Diccionario para guardar los mensajes del usuario
+        quiz_mensajes[ctx.author.id] = {}
 
     # Función para verificar que la reacción sea del usuario que inició el comando y que use una de las opciones válidas para el quiz
     def make_check(pregunta_msg):
@@ -253,6 +295,7 @@ async def cities(ctx): # Comando $cities
         # Guardamos el mensaje y usuario con el comando ejecutado
         quiz_mensajes[ctx.author.id][pregunta_msg.id] = 'cities'
 
+        # Agrega las reacciones al mensaje
         for emoji in opciones:
             await pregunta_msg.add_reaction(emoji)
 
@@ -261,11 +304,12 @@ async def cities(ctx): # Comando $cities
 
         await ctx.send("\u200b") # Espacio en blanco
 
-    await ctx.send(f"{ctx.author.mention} ¡Gracias por completar el quiz! 🎉")
+    await ctx.send(f"{ctx.author.mention} ¡Gracias por completar el quiz de Cities: Skylines! 🎉")
 
     if ctx.author.id in quiz_mensajes:
         del quiz_mensajes[ctx.author.id] # Limpia el diccionario de mensajes del usuario
 
+# === COMANDO PARA EL QUIZ DE TECNOLOGIA ===
 @bot.command()
 @commands.cooldown(1, 60, BucketType.user)  # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
 async def technology(ctx):
@@ -288,6 +332,11 @@ async def technology(ctx):
         { "texto": "¿Te gustan los relojes inteligentes como el Apple Watch o Galaxy Watch?" },
         { "texto": "¿Te gusta hacer pagos con el celular, por ejemplo con Google Pay o Apple Pay?" },
         { "texto": "¿Te gustaría tener una casa inteligente con luces o cerraduras controladas desde el celular?" },
+        { "texto": "¿Has usado alguna vez un servicio en la nube como Google Drive o iCloud?" },
+        { "texto": "¿Has usado alguna app para monitorear tu salud o ejercicio?" },
+        { "texto": "¿Has probado alguna app de realidad aumentada?" },
+        { "texto": "¿Te gustaría vivir en una ciudad 100% inteligente y conectada?" },
+        { "texto": "¿Alguna vez has hablado con una IA como si fuera una persona real?" },
     ]
 
     # Mezcla las preguntas para que no siempre salgan en el mismo orden
@@ -308,8 +357,9 @@ async def technology(ctx):
     
     await ctx.send("\u200b") # Espacio en blanco
 
+    # Si no existe el diccionario para el usuario, se crea
     if ctx.author.id not in quiz_mensajes:
-        quiz_mensajes[ctx.author.id] = {} # Diccionario para guardar los mensajes del usuario
+        quiz_mensajes[ctx.author.id] = {}
 
     # Función para verificar que la reacción sea del usuario que inició el comando y que use una de las opciones válidas para el quiz
     def make_check(pregunta_msg):
@@ -323,8 +373,10 @@ async def technology(ctx):
     for pregunta in preguntas:
         pregunta_msg = await ctx.send(f"{ctx.author.mention}, {pregunta['texto']} \n")
 
+        # Guardamos el mensaje y usuario con el comando ejecutado
         quiz_mensajes[ctx.author.id][pregunta_msg.id] = 'technology'
 
+        # Agrega las reacciones al mensaje
         for emoji in opciones:
             await pregunta_msg.add_reaction(emoji)
 
@@ -333,11 +385,90 @@ async def technology(ctx):
 
         await ctx.send("\u200b") # Espacio en blanco
 
-    await ctx.send(f"{ctx.author.mention} ¡Gracias por completar el quiz! 🎉")
+    await ctx.send(f"{ctx.author.mention} ¡Gracias por completar el quiz de tecnologia! 🎉")
 
     if ctx.author.id in quiz_mensajes:
         del quiz_mensajes[ctx.author.id] # Limpia el diccionario de mensajes del usuario
 
+# === COMANDO PARA EL QUIZ DE INFORMATICA ===
+@bot.command()
+@commands.cooldown(1, 60, BucketType.user) # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
+async def informatica(ctx):
+
+    # Verifica si el usuario vinculo su cuenta de LifeSyncGames con Discord
+    if not usuario_autorizado(ctx.author.id):
+        await ctx.send(f"❌ {ctx.author.mention}, no tienes permiso para usar este comando. Por favor, vincula tu cuenta de LifeSyncGames con Discord.")
+        return
+
+    # Verifica si el usuario ya tiene 15 puntos
+    puntos_actuales = puntos_totales_usuario(str(ctx.author.id))
+    if puntos_actuales >= 15:
+        await ctx.send(f"🚫 {ctx.author.mention}, ya has alcanzado el límite de 15 puntos por hoy. ¡Inténtalo de nuevo mañana!")
+        return
+
+    # Lista de preguntas para el quiz de informática
+    preguntas = [
+        { "texto": "¿Te gustaria aprender sobre computadoras y cómo funcionan?" },
+        { "texto": "¿Alguna vez has formateado una computadora por tu cuenta?" },
+        { "texto": "¿Te gusta arreglar problemas técnicos en tu PC o la de otros?" },
+        { "texto": "¿Te interesa saber cómo se construye un programa o aplicación?" },
+        { "texto": "¿Te gustaría montar tu propio PC desde cero?" },
+        { "texto": "¿Te interesa la ciberseguridad y cómo proteger tus dispositivos?" },
+        { "texto": "¿Te gusta usar software libre y de código abierto como Linux?" },
+        { "texto": "¿Te gustaría aprender a programar?" },
+        { "texto": "¿Crees que saber informática es esencial para cualquier carrera hoy en día?" },
+        { "texto": "¿Te gustaría trabajar en algo relacionado con informática algún día?" },
+    ]
+
+    random.shuffle(preguntas) # Mezcla las preguntas para que no siempre salgan en el mismo orden
+
+    # Saludamos al usuario y le damos instrucciones
+    await ctx.send(
+        f"{ctx.author.mention} ¡Bienvenido al quiz de LifeSyncGames! 🎮\n"
+        "Responde con una reacción a cada pregunta. Las opciones son:\n\n"
+        "❤️ → *Me encanta / Muy de acuerdo*\n"
+        "👍 → *Me gusta / De acuerdo*\n"
+        "🤔 → *Ni de acuerdo ni en desacuerdo / Neutral*\n"
+        "👎 → *No me gusta / En desacuerdo*\n"
+    )
+
+    # Definimos las opciones de reacción que el bot va a detectar
+    opciones = ['❤️', '👍', '🤔', '👎']
+    
+    await ctx.send("\u200b") # Espacio en blanco
+
+    # Si no existe el diccionario para el usuario, se crea
+    if ctx.author.id not in quiz_mensajes:
+        quiz_mensajes[ctx.author.id] = {}
+
+    # Función para verificar que la reacción sea del usuario que inició el comando y que use una de las opciones válidas para el quiz
+    def make_check(pregunta_msg):
+        return lambda reaction, user: (
+            user == ctx.author and 
+            str(reaction.emoji) in opciones and 
+            reaction.message.id == pregunta_msg.id
+        )
+
+    # Función para enviar las preguntas, agrega las reacciones y espera la respuesta del usuario
+    for pregunta in preguntas:
+        pregunta_msg = await ctx.send(f"{ctx.author.mention}, {pregunta['texto']} \n")
+
+        # Guardamos el mensaje y usuario con el comando ejecutado
+        quiz_mensajes[ctx.author.id][pregunta_msg.id] = 'informatica'
+
+        # Agrega las reacciones al mensaje
+        for emoji in opciones:
+            await pregunta_msg.add_reaction(emoji)
+
+        # Espera a que el usuario reaccione
+        reaction, user = await bot.wait_for('reaction_add', check=make_check(pregunta_msg))
+
+        await ctx.send("\u200b") # Espacio en blanco
+
+    await ctx.send(f"{ctx.author.mention} ¡Gracias por completar el quiz de informática! 🎉")
+
+    if ctx.author.id in quiz_mensajes:
+        del quiz_mensajes[ctx.author.id] # Limpia el diccionario de mensajes del usuario
 
 # === COMANDO PARA LIMPIAR EL CANAL ===    
 @bot.command()
