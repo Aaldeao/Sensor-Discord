@@ -495,6 +495,7 @@ async def Help(ctx):
         "`$LSG` → Muestra tus puntos del día.\n"
         "`$cities` → Inicia un quiz sobre Cities: Skylines.\n"
         "`$technology` → Inicia un quiz sobre tecnología.\n"
+        "`$informatica` → Inicia un quiz sobre informática.\n"
         "`$clean` → Limpia el canal de mensajes.\n"
         "`$Help` → para ver esta lista de nuevo."
     )
