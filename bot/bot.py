@@ -231,7 +231,7 @@ async def LSG(ctx):
 # === QUIZ ===
 # === COMANDO PARA EL QUIZ DE CITIES: SKYLINES ===
 @bot.command()
-@commands.cooldown(1, 60, BucketType.user) # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
+@commands.cooldown(1, 86400, BucketType.user) # Limita el uso del comando a una vez cada 24 horas
 async def cities(ctx):
 
     # Verifica si el usuario vinculo su cuenta de LifeSyncGames con Discord
@@ -311,7 +311,7 @@ async def cities(ctx):
 
 # === COMANDO PARA EL QUIZ DE TECNOLOGIA ===
 @bot.command()
-@commands.cooldown(1, 60, BucketType.user)  # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
+@commands.cooldown(1, 86400, BucketType.user) # Limita el uso del comando a una vez cada 24 horas
 async def technology(ctx):
 
     # Verifica si el usuario vinculo su cuenta de LifeSyncGames con Discord
@@ -392,7 +392,7 @@ async def technology(ctx):
 
 # === COMANDO PARA EL QUIZ DE INFORMATICA ===
 @bot.command()
-@commands.cooldown(1, 60, BucketType.user) # Limita el uso del comando a una vez cada 60 segundos por usuario === (86400 segundos = 24 horas) ===
+@commands.cooldown(1, 86400, BucketType.user) # Limita el uso del comando a una vez cada 24 horas
 async def informatica(ctx):
 
     # Verifica si el usuario vinculo su cuenta de LifeSyncGames con Discord

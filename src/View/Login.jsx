@@ -27,7 +27,7 @@ function Login({ setView }) { // Recibe setView como prop
   };
   return (
     <div className='loginBGames-container'>
-      <h1>Login in bGames</h1>
+      <h1>Login in LifeSync Games</h1>
       <form onSubmit={handleSubmit}>
         <div>
           <label>Email:</label>
