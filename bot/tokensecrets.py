@@ -1,5 +1,8 @@
-parte1 = "MTM4MzE1Nzg1ODg1NzkxMDM1Mg"
-parte2 = "GT7QMn"
-parte3 = "YcuTC5WbLi-0nXPJzHG-97zjqsfJ9anD-AkDMY"
+# tokensecrets.py
 
-TOKEN = f"{parte1}.{parte2}.{parte3}"
+# ⚠️ IMPORTANTE:
+# Este archivo no incluye el token por seguridad.
+# Copia el token desde el README.md y pégalo reemplazando "PEGA_AQUI_EL_TOKEN".
+# Asegúrate de quitar correctamente las partes entre paréntesis y pegarlo dentro de las comillas.
+
+TOKEN = "PEGA_AQUI_EL_TOKEN"
