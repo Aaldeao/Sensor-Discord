@@ -140,6 +140,7 @@ def agregar_puntos(usuario_id, mensaje_id, emoji):
                 print(f"Error al enviar puntos: {response.status_code} - {response.text}") # Mensaje de error
         else:
             print(f"Usuario {usuario_id} ya alcanzó el máximo de puntos diarios. No se envían más.")
+            return "max_puntos"
     except Exception as e:
         print(f"Excepción al enviar puntos al servidor: {e}") # Mensaje de excepción
 
@@ -190,7 +191,10 @@ async def on_reaction_add(reaction, user):
     if autor.id != user.id and not autor.bot and emoji in emoji_puntos:
         # Verifica que el autor del mensaje tiene vinculado su cuenta de LifeSyncGames con Discord
         if usuario_autorizado(autor.id):
-            agregar_puntos(str(autor.id), str(mensaje.id), emoji)
+            resultado = agregar_puntos(str(autor.id), str(mensaje.id), emoji)
+            if resultado == "max_puntos":
+                await mensaje.channel.send(f"🚫 {autor.mention}, ya ha alcanzado el máximo de 15 puntos por hoy. No se sumarán puntos a la dimensión social.")
+
 
 # Evento que se activa cuando un usuario envía un mensaje
 @bot.event
@@ -208,8 +212,11 @@ async def on_message(message):
             # Verifica que el autor del mensaje tiene vinculado su cuenta de LifeSyncGames con Discord
             if usuario_autorizado(autor_de_mensaje.id):
                 # Agrega puntos al autor del mensaje original por la respuesta de otro usuario
-                agregar_puntos(str(autor_de_mensaje.id), str(mensaje_respondido.id), '❤️') # 
-                print(f"Puntos agregados al autor del mensaje por la respuesta de otro usuario")
+                resultado = agregar_puntos(str(autor_de_mensaje.id), str(mensaje_respondido.id), '❤️')
+                if resultado == "max_puntos":
+                    await message.channel.send(f"🚫 {autor_de_mensaje.mention}, ya ha alcanzado el máximo de 15 puntos por hoy. No se sumarán puntos a la dimensión social.")
+                else:
+                    print(f"Puntos agregados al autor del mensaje por la respuesta de otro usuario")
     
     # Para que el bot siga procesando los comandos después de manejar este evento
     await bot.process_commands(message)
