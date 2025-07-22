@@ -1,4 +1,4 @@
-# Sensor-Discord
+# Sensor-LifeSync-Games-Discord
 
 Este repositorio contiene el bot de Discord diseñado para capturar la actividad social de los usuarios dentro de un servidor de Discord, transformando dichas interacciones en puntos que se asignan a la dimensión social de su cuenta en **LifeSync-Games**.
 
