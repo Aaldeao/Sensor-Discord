@@ -147,5 +147,5 @@ It is recommended to use **Docker** for quick and easy deployment.
 To run the bot, copy and paste the following token into the `tokensecrets.py` file.  
 It is split for security reasons:
    ```
-   MTM4MzE1Nzg1ODg1NzkxMDM1Mg(Borra esto).GP5RIU.(Borra esto)lK16Vp6F8JVs2Gq3Dx-tByBH3fETCC3dVPtn1w
+   MTM4MzE1Nzg1ODg1NzkxMDM1Mg(Delete this).GP5RIU.(Delete this)lK16Vp6F8JVs2Gq3Dx-tByBH3fETCC3dVPtn1w
    ```
